@@ -22,6 +22,7 @@ import http.client as http_client
 import json
 import logging
 import os
+import time
 from urllib.parse import urljoin
 
 from google.auth import _helpers
@@ -32,7 +33,7 @@ from google.auth import metrics
 _LOGGER = logging.getLogger(__name__)
 
 # Environment variable GCE_METADATA_HOST is originally named
-# GCE_METADATA_ROOT. For compatiblity reasons, here it checks
+# GCE_METADATA_ROOT. For compatibility reasons, here it checks
 # the new variable first; if not set, the system falls back
 # to the old variable.
 _GCE_METADATA_HOST = os.getenv(environment_vars.GCE_METADATA_HOST, None)
@@ -100,7 +101,7 @@ def detect_gce_residency_linux():
     return content.startswith(_GOOGLE)
 
 
-def ping(request, timeout=_METADATA_DEFAULT_TIMEOUT, retry_count=3):
+def ping(request, timeout=_METADATA_DEFAULT_TIMEOUT, retry_count=5, delay=2):
     """Checks to see if the metadata server is available.
 
     Args:
@@ -109,6 +110,7 @@ def ping(request, timeout=_METADATA_DEFAULT_TIMEOUT, retry_count=3):
         timeout (int): How long to wait for the metadata server to respond.
         retry_count (int): How many times to attempt connecting to metadata
             server using above timeout.
+        delay (int): Time to wait between retries.
 
     Returns:
         bool: True if the metadata server is reachable, False otherwise.
@@ -144,6 +146,7 @@ def ping(request, timeout=_METADATA_DEFAULT_TIMEOUT, retry_count=3):
                 e,
             )
             retries += 1
+            time.sleep(delay)
 
     return False
 
@@ -157,6 +160,7 @@ def get(
     retry_count=5,
     headers=None,
     return_none_for_not_found_error=False,
+    delay=2,
 ):
     """Fetch a resource from the metadata server.
 
@@ -176,10 +180,11 @@ def get(
         headers (Optional[Mapping[str, str]]): Headers for the request.
         return_none_for_not_found_error (Optional[bool]): If True, returns None
             for 404 error instead of throwing an exception.
+        delay (int): Time to wait between retries.
 
     Returns:
         Union[Mapping, str]: If the metadata server returns JSON, a mapping of
-            the decoded JSON is return. Otherwise, the response content is
+            the decoded JSON is returned. Otherwise, the response content is
             returned as a string.
 
     Raises:
@@ -213,6 +218,7 @@ def get(
                 e,
             )
             retries += 1
+            time.sleep(delay)
     else:
         raise exceptions.TransportError(
             "Failed to retrieve {} from the Google Compute Engine "
